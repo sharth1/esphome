@@ -3,7 +3,7 @@ esphome:
   name: esp32-xiao-c3
   friendly_name: ESP32 XIAO C3
   on_boot:
-    then:
+    - script.execute: measure_soil_moisture
 
 esp32:
   board: seeed_xiao_esp32c3
@@ -24,6 +24,7 @@ wifi:
     password: "fallback123"
 
 api:
+  port: 6053
 
 ota:
   - platform: esphome
@@ -37,27 +38,43 @@ mqtt:
   password: !secret mqtt_pwd
   port: !secret mqtt_port
   topic_prefix: esp/xiao_c3
+  birth_message:
+    topic: esp/xiao_c3
+    payload: online
+  will_message:
+    topic: esp/xiao_c3
+    payload: wtf
 
 deep_sleep:
   id: deep_sleep_1
-  sleep_duration: 1800s
+  sleep_duration: 3s
 
-script_measurement:
-  - id: do_measurement
+############################# SCRIPTS #############################
+script:
+  - id: measure_soil_moisture
     then:
-      - delay: 15s
-      - component.update: soil_raw
-      - component.update: soil_percent
-      - delay: 2s
+      - switch.turn_on: vcc_soil_moisture
+      - delay: 10s
+      - if:
+          condition:
+            mqtt.connected:
+          then: 
+          - component.update: soil_moisture_raw
+          - delay: 5s # delay to ensure data has time to be sent
+          - logger.log: Soil Moisture raw value sent to database
+
+          else:
+          - logger.log: Failed sending to database
       - deep_sleep.enter: deep_sleep_1
+#       - component.update: soil_percent
+      - switch.turn_off: vcc_soil_moisture
+  # - id: pump_water
+  # - id: measure_water_level
+  # - id: indicate_low_water_level
+  # - id: indicate_pumping
 
-script_pump:
-  - id: pump
-    then:
-      - switch.turn_off: relay1
-      - delay: 5s
-      - switch.turn_on: relay1
 
+############################# SCREEN #############################
 
 # i2c:
 #   sda: GPIO5
@@ -84,63 +101,98 @@ script_pump:
 #       it.printf(0, 16, id(font_small),
 #                 "ADC: %.0f", id(soil_raw).state);
 
+
+############################# SENSORS #############################
+
 sensor:
-  - pin: 
+  - name: "Soil Moisture Raw"
+    id: soil_moisture_raw
+    pin: GPIO3
     platform: adc
-    id: soil_raw
-    name: ""
     raw: true
     attenuation: 12db
     update_interval: never
 
 
-  - platform: template
-    id: soil_percent
-    name: ""
-    unit_of_measurement: "%"
-    lambda: |-
-      const float dry = 2500;   // trocken kalibrieren!
-      const float wet = 1460;   // nass kalibrieren!
-      float value = (dry - id(soil_raw).state) * 100.0 / (dry - wet);
-      if (value < 0) return 0;
-      if (value > 100) return 100;
-      return value;
+#   - platform: template
+#     id: soil_percent
+#     name: ""
+#     unit_of_measurement: "%"
+#     lambda: |-
+#       const float dry = 2500;   // trocken kalibrieren!
+#       const float wet = 1460;   // nass kalibrieren!
+#       float value = (dry - id(soil_raw).state) * 100.0 / (dry - wet);
+#       if (value < 0) return 0;
+#       if (value > 100) return 100;
+#       return value;
+
+############################# SWITCHES #############################
 
 switch:
   # Relay
-  - platform: gpio
-    name: "relay2"
-    pin: 
-      number: !
-      inverted: false
+  - name: "Relay_2"
     id: relay2
+    platform: gpio
+    pin: 
+      number: 6
+      inverted: true
     restore_mode: ALWAYS_OFF
-    # turn_on_action:
-    #   - led.turn_on: blinker
-    # turn_off_action:
-    #   - led.turn_off: blinker
 
-led:
-  - platform: gpio
-    name: "led_water_level"
-    pin: !
-    id: "led_water_level"
-    restore_mode: ALWAYS_OFF
-    optimistic: ! yes 
-    inverted: true
+  - name: "Soil Moisture Power"
+    id: vcc_soil_moisture
+    platform: gpio
+    pin: GPIO0
 
-  - platform: ! template
-    name: "led_blinker"
-    id: "blinker"
-    turn_on_action:
-        lambda: 'return id(relay2).state;'
-        condition:
-          lambda: 'return true;'
-        then:
-        - led.turn_on: led_water_level
-        - delay: 10ms 
-        - led.turn_off: led_water_level
-        - delay: 500ms
-    turn_off_action:
-    - led.turn_off: led_water_level
+############################# NUMBERS #############################
+
+# Example configuration entry
+number:
+  - name: "Dry Soil Value"
+    id: dry_soil_value
+    platform: template
+    optimistic: true
+    min_value: 0
+    max_value: 3650
+    step: 1
+    restore_value: true
+
+  - name: "Wet Soil Value"
+    id: wet_soil_value
+    platform: template
+    optimistic: true
+    min_value: 0
+    max_value: 2000
+    step: 1
+    restore_value: true
+
+  - name: "Low Water Level Value"
+    id: low_water_level_value
+    platform: template
+    optimistic: true
+    min_value: 0
+    max_value: 2000
+    step: 1
+    restore_value: true
+
+  - name: "High Water Level Value"
+    id: high_water_level_value
+    platform: template
+    optimistic: true
+    min_value: 0
+    max_value: 2000
+    step: 1
+    restore_value: true
+
+  - name: "Pump Duration"
+    id: pump_duration
+    platform: template
+    optimistic: true
+    min_value: 0
+    max_value: 2000
+    step: 1
+    restore_value: true
+
+
+
+
 ...
