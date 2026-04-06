@@ -1,0 +1,146 @@
+---
+esphome:
+  name: esp32-xiao-c3
+  friendly_name: ESP32 XIAO C3
+  on_boot:
+    then:
+
+esp32:
+  board: seeed_xiao_esp32c3
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+
+wifi:
+  ssid: !secret wifi24_ssid
+  password: !secret wifi24_pwd
+  fast_connect: true
+  power_save_mode: light
+
+  ap:
+    ssid: "esp32-xiao-c3-fallback"
+    password: "fallback123"
+
+api:
+
+ota:
+  - platform: esphome
+
+mdns:
+  disabled: false
+
+mqtt:
+  broker: !secret mqtt_broker
+  username: !secret mqtt_user
+  password: !secret mqtt_pwd
+  port: !secret mqtt_port
+  topic_prefix: esp/xiao_c3
+
+deep_sleep:
+  id: deep_sleep_1
+  sleep_duration: 1800s
+
+script_measurement:
+  - id: do_measurement
+    then:
+      - delay: 15s
+      - component.update: soil_raw
+      - component.update: soil_percent
+      - delay: 2s
+      - deep_sleep.enter: deep_sleep_1
+
+script_pump:
+  - id: pump
+    then:
+      - switch.turn_off: relay1
+      - delay: 5s
+      - switch.turn_on: relay1
+
+
+# i2c:
+#   sda: GPIO5
+#   scl: GPIO6
+#   scan: true
+
+# font:
+#   - file: "gfonts://Roboto"
+#     id: font_small
+#     size: 10
+
+# display:
+#   - platform: ssd1306_i2c
+#     id: oled_display
+#     model: "SSD1306 72x40"
+#     address: 0x3C
+#     contrast: 100%
+#     lambda: |-
+#       it.fill(COLOR_OFF);
+
+#       it.printf(0, 0, id(font_small),
+#                 "Humidity: %.0f %%", id(soil_percent).state);
+
+#       it.printf(0, 16, id(font_small),
+#                 "ADC: %.0f", id(soil_raw).state);
+
+sensor:
+  - pin: 
+    platform: adc
+    id: soil_raw
+    name: ""
+    raw: true
+    attenuation: 12db
+    update_interval: never
+
+
+  - platform: template
+    id: soil_percent
+    name: ""
+    unit_of_measurement: "%"
+    lambda: |-
+      const float dry = 2500;   // trocken kalibrieren!
+      const float wet = 1460;   // nass kalibrieren!
+      float value = (dry - id(soil_raw).state) * 100.0 / (dry - wet);
+      if (value < 0) return 0;
+      if (value > 100) return 100;
+      return value;
+
+switch:
+  # Relay
+  - platform: gpio
+    name: "relay2"
+    pin: 
+      number: !
+      inverted: false
+    id: relay2
+    restore_mode: ALWAYS_OFF
+    # turn_on_action:
+    #   - led.turn_on: blinker
+    # turn_off_action:
+    #   - led.turn_off: blinker
+
+led:
+  - platform: gpio
+    name: "led_water_level"
+    pin: !
+    id: "led_water_level"
+    restore_mode: ALWAYS_OFF
+    optimistic: ! yes 
+    inverted: true
+
+  - platform: ! template
+    name: "led_blinker"
+    id: "blinker"
+    turn_on_action:
+        lambda: 'return id(relay2).state;'
+        condition:
+          lambda: 'return true;'
+        then:
+        - led.turn_on: led_water_level
+        - delay: 10ms 
+        - led.turn_off: led_water_level
+        - delay: 500ms
+    turn_off_action:
+    - led.turn_off: led_water_level
+...
