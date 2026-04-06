@@ -38,12 +38,6 @@ mqtt:
   password: !secret mqtt_pwd
   port: !secret mqtt_port
   topic_prefix: esp/xiao_c3
-  birth_message:
-    topic: esp/xiao_c3
-    payload: online
-  will_message:
-    topic: esp/xiao_c3
-    payload: wtf
 
 deep_sleep:
   id: deep_sleep_1
@@ -55,16 +49,24 @@ script:
     then:
       - switch.turn_on: vcc_soil_moisture
       - delay: 10s
+      - wait_until:
+          condition:
+            mqtt.connected:
+          timeout: 30s
       - if:
           condition:
             mqtt.connected:
           then: 
-          - component.update: soil_moisture_raw
-          - delay: 5s # delay to ensure data has time to be sent
-          - logger.log: Soil Moisture raw value sent to database
+            - component.update: soil_moisture_raw
+            - delay: 15s # delay to ensure data has time to be sent
+            - logger.log: 
+                level: INFO
+                format: Soil Moisture raw value sent to database
 
           else:
-          - logger.log: Failed sending to database
+            - logger.log: 
+                level: INFO
+                format: Failed sending to database
       - deep_sleep.enter: deep_sleep_1
 #       - component.update: soil_percent
       - switch.turn_off: vcc_soil_moisture
