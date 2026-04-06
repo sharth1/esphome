@@ -1,0 +1,30 @@
+esphome:
+  name: watersystem
+
+esp32:
+  board: seeed_xiao_esp32c3
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: "Internet24"
+  password: "fSScJ@D3I@Ffp8"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Watersystem Fallback Hotspot"
+    password: "bvqeZ3BefqaW"
+
+captive_portal:
+    
