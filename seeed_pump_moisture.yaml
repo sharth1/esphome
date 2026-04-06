@@ -14,8 +14,8 @@ logger:
   level: INFO
 
 wifi:
-  ssid: !secret wifi24_ssid
-  password: !secret wifi24_pwd
+  ssid: !secret wifi_ssid
+  password: !secret wifi_pwd
   fast_connect: true
   power_save_mode: light
 
