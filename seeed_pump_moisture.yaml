@@ -50,23 +50,39 @@ script:
       - switch.turn_on: vcc_soil_moisture
       - delay: 10s
       - wait_until:
-          condition:
-            mqtt.connected:
-          timeout: 30s
+            condition:
+              and:
+                - wifi.connected:
+                - mqtt.connected:
+            timeout: 20s
       - if:
           condition:
             mqtt.connected:
           then: 
             - component.update: soil_moisture_raw
-            - delay: 15s # delay to ensure data has time to be sent
+            - delay: 15s 
             - logger.log: 
                 level: INFO
                 format: Soil Moisture raw value sent to database
 
-          else:
-            - logger.log: 
-                level: INFO
-                format: Failed sending to database
+      - if:
+          condition:
+            not: 
+              mqtt.connected:
+          then: 
+            - logger.log:
+                level: WARN
+                format: MQTT NOT CONNECTED
+
+      - if:
+          condition:
+            not: 
+              wifi.connected:
+          then: 
+            - logger.log:
+                level: WARN
+                format: WIFI NOT CONNECTED
+            
       - deep_sleep.enter: deep_sleep_1
 #       - component.update: soil_percent
       - switch.turn_off: vcc_soil_moisture
