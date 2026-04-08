@@ -3,7 +3,13 @@ esphome:
   name: esp32-xiao-c3
   friendly_name: ESP32 XIAO C3
   on_boot:
+    - script.execute: check_connections
+    - script.execute: initiate_sensors
+    - script.execute: measure_water_level
     - script.execute: measure_soil_moisture
+    - script.execute: measure_temp
+    - script.execute: measure_hum
+
 
 esp32:
   board: seeed_xiao_esp32c3
@@ -45,36 +51,21 @@ deep_sleep:
 
 ############################# SCRIPTS #############################
 script:
-  - id: 
-  - id: measure_soil_moisture
+  - id: check_connections
     then:
-      - switch.turn_on: vcc_soil_moisture
-      - delay: 10s
+### Check connections ###
       - wait_until:
-            condition:
-              and:
-                - wifi.connected:
-                - mqtt.connected:
-            timeout: 20s
+          condition:
+            wifi.connected:
+          timeout: 10s
+      # check wifi connection
       - if:
           condition:
-            mqtt.connected:
+            wifi.connected:
           then: 
-            - component.update: soil_moisture_raw
-            - delay: 15s 
             - logger.log: 
                 level: INFO
-                format: Soil Moisture raw value sent to database
-
-      - if:
-          condition:
-            not: 
-              mqtt.connected:
-          then: 
-            - logger.log:
-                level: WARN
-                format: MQTT NOT CONNECTED
-
+                format: CONNECTED wifi 
       - if:
           condition:
             not: 
@@ -82,13 +73,114 @@ script:
           then: 
             - logger.log:
                 level: WARN
-                format: WIFI NOT CONNECTED
-            
-      # - deep_sleep.enter: deep_sleep_1
-#       - component.update: soil_percent
-      - switch.turn_off: vcc_soil_moisture
+                format: COULD NOT CONNECT wifi 
+            - deep_sleep.enter: deep_sleep_1
+
+      # check mqtt connection
+      - wait_until:
+          condition:
+            mqtt.connected:
+          timeout: 10s
+      - if:
+          condition:
+            mqtt.connected:
+          then: 
+            - logger.log: 
+                level: INFO
+                format: CONNECTED mqtt 
+      - if:
+          condition:
+            not: 
+              mqtt.connected:
+          then: 
+            - logger.log:
+                level: WARN
+                format: COULD NOT CONNECT mqtt 
+            - deep_sleep.enter: deep_sleep_1
+
+
+  - id: initiate_sensors
+    if: 
+      condition:  
+        and:
+          - wifi.connected:
+          - mqtt.connected:
+            then: 
+            - switch.turn_on: vcc_waterlevel 
+            - logger.log:
+                level: INFO
+                format: INITIATED Water Level Sensor 
+
+            - switch.turn_on: vcc_soil_moisture 
+            - logger.log:
+                level: INFO
+                format: INITIATED Soil Moisture Sensor 
+
+            - switch.turn_on: vcc_temp_hum
+            - logger.log:
+                level: INFO
+                format: INITIATED Temperature and Humidity Sensor   
+
+            - delay: 1s # make it 30 seconds for final version!!!!!!!!!!!!!
+
+# alle sensoren anschalten
+# wasserlevel checken
+# wenn zu gering in HA ALARM
+# moisture checken
+# temperatur checken
+# moisture value wirklich bestimmen
+# pumpen/skippen
+# ggf. LED einschalten
+
+
+
+  - id: measure_water_level
+    then:
+      - component.update: waterlevel_raw
+      - switch.turn_off: vcc_waterlevel
+      # log water level
+  
+  - id: measure_soil_moisture
+    then: 
+      - component.update: soil_moisture_raw
+      # log mositure level
+      - logger.log:
+          level: INFO
+          format: 
+      # not turning the sensor off yet becaus eim not sure if the value will be kept for calcs
+
+  - id: measure_temp
+    then:
+      - component.update: temp # how do i access only temp value
+      # log temp
+      # not turning the sensor off yet becaus eim not sure if the value will be kept for calcs
+
+  - id: measure_hum
+    then:
+      - component.update: hum # how do i access only hum value 
+      # log hum
+      # not turning the sensor off yet becaus eim not sure if the value will be kept for calcs
+
+  - id: calculate_moisture_value
+  # lo calc
+      # tbd
+  
+  - id: pump_cycle
+    then: 
+      - switch.turn_on: vcc_led
+      - logger.log:
+          level: INFO
+          format: STARTING pump cycle
+      - switch.turn_on: relay1
+      - delay: pump_duration
+      - switch.turn_off: relay1
+      - logger.log: 
+          level: INFO
+          format: STOPPING pump cycle
+      - switch.turn_off: vcc_led
+
+
   # - id: pump_water
-  # - id: measure_water_level
   # - id: indicate_low_water_level
   # - id: indicate_pumping
 
@@ -244,6 +336,11 @@ number:
     step: 1
     restore_value: true
 
+  - name: "Deep Sleep Duration"
+    id: deep_sleep_time
+    platform: template
+    optimistic: true
+    restore_value: true
 
 
 
