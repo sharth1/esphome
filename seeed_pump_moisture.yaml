@@ -45,6 +45,7 @@ deep_sleep:
 
 ############################# SCRIPTS #############################
 script:
+  - id: 
   - id: measure_soil_moisture
     then:
       - switch.turn_on: vcc_soil_moisture
@@ -83,7 +84,7 @@ script:
                 level: WARN
                 format: WIFI NOT CONNECTED
             
-      - deep_sleep.enter: deep_sleep_1
+      # - deep_sleep.enter: deep_sleep_1
 #       - component.update: soil_percent
       - switch.turn_off: vcc_soil_moisture
   # - id: pump_water
@@ -131,6 +132,24 @@ sensor:
     attenuation: 12db
     update_interval: never
 
+  - name: "Water Level"
+    id: waterlevel_raw
+    pin: GPIO4
+    platform: adc
+    raw: true
+    attenuation: 12db
+    update_interval: never
+
+  - id: temp_hum
+    pin: GPIO6
+    platform: dht
+    temperature:
+      name: "Temperature"
+    humidity:
+      name: "Humidity"
+    update_interval: never
+
+
 
 #   - platform: template
 #     id: soil_percent
@@ -148,18 +167,33 @@ sensor:
 
 switch:
   # Relay
-  - name: "Relay_2"
-    id: relay2
+  - name: "Relay_1"
+    id: relay1
     platform: gpio
     pin: 
-      number: 6
+      number: 5
       inverted: true
     restore_mode: ALWAYS_OFF
 
   - name: "Soil Moisture Power"
     id: vcc_soil_moisture
     platform: gpio
+    pin: GPIO2
+    
+  - name: "Water Level Power"
+    id: vcc_waterlevel
+    platform: gpio
+    pin: GPIO1
+
+  - name: "Tem./Hum. Power"
+    id: vcc_temp_hum
+    platform: gpio
     pin: GPIO0
+
+  - name: "Pump ON LED"
+    id: vcc_led
+    platform: gpio
+    pin: GPIO9
 
 ############################# NUMBERS #############################
 
