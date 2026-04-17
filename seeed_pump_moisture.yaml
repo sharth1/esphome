@@ -1,15 +1,34 @@
 ---
 esphome:
   name: esp32-xiao-c3
-  friendly_name: ESP32 XIAO C3
+  friendly_name: ESP32 XIAO C32
   on_boot:
-    - script.execute: check_connections
-    - script.execute: initiate_sensors
-    - script.execute: measure_water_level
-    - script.execute: measure_soil_moisture
-    - script.execute: measure_temp
-    - script.execute: measure_hum
+    # - priority: 700
+      then:
+        - output.turn_on: my_slow_pwm
+        - output.set_level: 
+            id: my_slow_pwm
+            level: "10%"
+        - script.execute: check_connections
+        - script.wait: check_connections
+    # - priority: 600
+    #   then:
+        - script.execute: initiate_sensors
+        - script.wait: initiate_sensors
+    # - priority: 500
+    #   then:
+        - script.execute: measure_water_level
+        - script.wait: measure_water_level
 
+        - script.execute: measure_soil_moisture
+        - script.wait: measure_soil_moisture
+
+        - script.execute: measure_temp_hum
+        - script.wait: measure_temp_hum
+
+        - switch.turn_off: vcc_led
+        - output.turn_off: my_slow_pwm
+        - deep_sleep.enter: deep_sleep_1
 
 esp32:
   board: seeed_xiao_esp32c3
@@ -47,7 +66,7 @@ mqtt:
 
 deep_sleep:
   id: deep_sleep_1
-  sleep_duration: 3s
+  sleep_duration: 600s
 
 ############################# SCRIPTS #############################
 script:
@@ -100,28 +119,33 @@ script:
 
 
   - id: initiate_sensors
-    if: 
-      condition:  
-        and:
+    then:
+      if: 
+        all:  
           - wifi.connected:
           - mqtt.connected:
-            then: 
-            - switch.turn_on: vcc_waterlevel 
-            - logger.log:
-                level: INFO
-                format: INITIATED Water Level Sensor 
+        then: 
+        - switch.turn_on: vcc_waterlevel 
+        - logger.log:
+            level: INFO
+            format: INITIATED Water Level Sensor 
 
-            - switch.turn_on: vcc_soil_moisture 
-            - logger.log:
-                level: INFO
-                format: INITIATED Soil Moisture Sensor 
+        - switch.turn_on: vcc_soil_moisture 
+        - logger.log:
+            level: INFO
+            format: INITIATED Soil Moisture Sensor 
 
-            - switch.turn_on: vcc_temp_hum
-            - logger.log:
-                level: INFO
-                format: INITIATED Temperature and Humidity Sensor   
+        - switch.turn_on: vcc_temp_hum
+        - logger.log:
+            level: INFO
+            format: INITIATED Temperature and Humidity Sensor   
 
-            - delay: 1s # make it 30 seconds for final version!!!!!!!!!!!!!
+        - delay: 20s # make it 30 seconds for final version!!!!!!!!!!!!!
+  
+        else:
+          - logger.log:
+              level: WARN
+              format: Skipped initiation of sensors, because MQTT/WIFI NOT CONNECTED
 
 # alle sensoren anschalten
 # wasserlevel checken
@@ -136,32 +160,35 @@ script:
 
   - id: measure_water_level
     then:
-      - component.update: waterlevel_raw
+      - component.update: water_level_raw
+      - delay: 5s
+      - logger.log:
+          level: INFO
+          format: Water Level value updated
       - switch.turn_off: vcc_waterlevel
       # log water level
   
   - id: measure_soil_moisture
     then: 
       - component.update: soil_moisture_raw
-      # log mositure level
+      - delay: 5s
+      # log moisture level
       - logger.log:
           level: INFO
-          format: 
-      # not turning the sensor off yet becaus eim not sure if the value will be kept for calcs
+          format: Soil Moisture value updated
+      # not turning the sensor off yet because im not sure if the value will be kept for calcs
+      - switch.turn_off: vcc_soil_moisture
 
-  - id: measure_temp
+  - id: measure_temp_hum
     then:
-      - component.update: temp # how do i access only temp value
+      - component.update: temp_hum 
+      - delay: 5s
       # log temp
-      # not turning the sensor off yet becaus eim not sure if the value will be kept for calcs
-
-  - id: measure_hum
-    then:
-      - component.update: hum # how do i access only hum value 
-      # log hum
-      # not turning the sensor off yet becaus eim not sure if the value will be kept for calcs
-
-  - id: calculate_moisture_value
+      # not turning the sensor off yet because im not sure if the value will be kept for calcs
+      - logger.log:
+        level: INFO
+        format: Temp./Hum. value updated
+  # - id: calculate_moisture_value
   # lo calc
       # tbd
   
@@ -172,7 +199,7 @@ script:
           level: INFO
           format: STARTING pump cycle
       - switch.turn_on: relay1
-      - delay: pump_duration
+      - delay: !lambda return id(pump_duration).state;
       - switch.turn_off: relay1
       - logger.log: 
           level: INFO
@@ -184,7 +211,11 @@ script:
   # - id: indicate_low_water_level
   # - id: indicate_pumping
 
-
+output:
+  platform: slow_pwm
+  pin: GPIO9
+  id: my_slow_pwm
+  period: 1000ms
 ############################# SCREEN #############################
 
 # i2c:
@@ -216,7 +247,7 @@ script:
 ############################# SENSORS #############################
 
 sensor:
-  - name: "Soil Moisture Raw"
+  - name: "Soil Moisture"
     id: soil_moisture_raw
     pin: GPIO3
     platform: adc
@@ -225,7 +256,7 @@ sensor:
     update_interval: never
 
   - name: "Water Level"
-    id: waterlevel_raw
+    id: water_level_raw
     pin: GPIO4
     platform: adc
     raw: true
@@ -235,11 +266,12 @@ sensor:
   - id: temp_hum
     pin: GPIO6
     platform: dht
+    model: dht11
     temperature:
       name: "Temperature"
     humidity:
       name: "Humidity"
-    update_interval: never
+    update_interval: 25s
 
 
 
@@ -270,22 +302,22 @@ switch:
   - name: "Soil Moisture Power"
     id: vcc_soil_moisture
     platform: gpio
-    pin: GPIO2
+    pin: GPIO1
     
   - name: "Water Level Power"
     id: vcc_waterlevel
     platform: gpio
-    pin: GPIO1
+    pin: GPIO0
 
   - name: "Tem./Hum. Power"
     id: vcc_temp_hum
     platform: gpio
-    pin: GPIO0
+    pin: GPIO2
 
   - name: "Pump ON LED"
     id: vcc_led
     platform: gpio
-    pin: GPIO9
+    pin: GPIO10
 
 ############################# NUMBERS #############################
 
@@ -297,6 +329,7 @@ number:
     optimistic: true
     min_value: 0
     max_value: 3650
+    unit_of_measurement: "Volt"
     step: 1
     restore_value: true
 
@@ -306,6 +339,7 @@ number:
     optimistic: true
     min_value: 0
     max_value: 2000
+    unit_of_measurement: "Volt"
     step: 1
     restore_value: true
 
@@ -315,6 +349,7 @@ number:
     optimistic: true
     min_value: 0
     max_value: 2000
+    unit_of_measurement: "Volt"
     step: 1
     restore_value: true
 
@@ -324,6 +359,7 @@ number:
     optimistic: true
     min_value: 0
     max_value: 2000
+    unit_of_measurement: "Volt"
     step: 1
     restore_value: true
 
@@ -331,6 +367,7 @@ number:
     id: pump_duration
     platform: template
     optimistic: true
+    unit_of_measurement: "sec"
     min_value: 0
     max_value: 2000
     step: 1
@@ -340,6 +377,10 @@ number:
     id: deep_sleep_time
     platform: template
     optimistic: true
+    min_value: 0
+    max_value: 18000
+    unit_of_measurement: "sec"
+    step: 1
     restore_value: true
 
 
