@@ -26,6 +26,14 @@ esphome:
         - script.execute: measure_temp_hum
         - script.wait: measure_temp_hum
 
+        - if:
+            condition:
+              - lambda: |-
+                 return id(soil_moisture_raw).state > 1700; 
+            then:
+              - script.execute: pump_cycle
+              - script.wait: pump_cycle
+        
         - switch.turn_off: vcc_led
         - output.turn_off: my_slow_pwm
         - deep_sleep.enter: deep_sleep_1
@@ -186,8 +194,8 @@ script:
       # log temp
       # not turning the sensor off yet because im not sure if the value will be kept for calcs
       - logger.log:
-        level: INFO
-        format: Temp./Hum. value updated
+          level: INFO
+          format: Temp./Hum. value updated
   # - id: calculate_moisture_value
   # lo calc
       # tbd
@@ -206,10 +214,6 @@ script:
           format: STOPPING pump cycle
       - switch.turn_off: vcc_led
 
-
-  # - id: pump_water
-  # - id: indicate_low_water_level
-  # - id: indicate_pumping
 
 output:
   platform: slow_pwm
