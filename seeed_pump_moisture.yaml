@@ -37,7 +37,7 @@ esphome:
         
         - switch.turn_off: vcc_led
         - output.turn_off: my_slow_pwm
-        # - deep_sleep.enter: deep_sleep_1
+        - deep_sleep.enter: deep_sleep_1
 
 esp32:
   board: seeed_xiao_esp32c3
