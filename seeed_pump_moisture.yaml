@@ -270,7 +270,7 @@ sensor:
     humidity:
       name: "Humidity"
       id: humidity
-    update_interval: 25s
+    update_interval: never
 
 
 
