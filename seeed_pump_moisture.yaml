@@ -44,6 +44,9 @@ esp32:
   framework:
     type: arduino
 
+logger: 
+  level: INFO
+
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_pwd
@@ -146,7 +149,7 @@ script:
             level: INFO
             format: INITIATED Temperature and Humidity Sensor   
 
-        - delay: 10s # make it 30 seconds for final version!!!!!!!!!!!!!
+        - delay: 10s 
   
         else:
           - logger.log:
@@ -183,7 +186,7 @@ script:
           args:
             - id(temperature).state
             - id(humidity).state
-      - switch.turn_off: temp_hum
+      - switch.turn_off: vcc_temp_hum
   # - id: calculate_moisture_value
   # lo calc
       # tbd
