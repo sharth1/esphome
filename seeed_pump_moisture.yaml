@@ -6,6 +6,7 @@ esphome:
     # - priority: 700
       then:
         - output.turn_on: my_slow_pwm
+        - delay: 5s
         - output.set_level: 
             id: my_slow_pwm
             level: "10%"
@@ -36,15 +37,12 @@ esphome:
         
         - switch.turn_off: vcc_led
         - output.turn_off: my_slow_pwm
-        - deep_sleep.enter: deep_sleep_1
+        # - deep_sleep.enter: deep_sleep_1
 
 esp32:
   board: seeed_xiao_esp32c3
   framework:
     type: arduino
-
-logger:
-  level: INFO
 
 wifi:
   ssid: !secret wifi_ssid
@@ -148,23 +146,12 @@ script:
             level: INFO
             format: INITIATED Temperature and Humidity Sensor   
 
-        - delay: 20s # make it 30 seconds for final version!!!!!!!!!!!!!
+        - delay: 10s # make it 30 seconds for final version!!!!!!!!!!!!!
   
         else:
           - logger.log:
               level: WARN
               format: Skipped initiation of sensors, because MQTT/WIFI NOT CONNECTED
-
-# alle sensoren anschalten
-# wasserlevel checken
-# wenn zu gering in HA ALARM
-# moisture checken
-# temperatur checken
-# moisture value wirklich bestimmen
-# pumpen/skippen
-# ggf. LED einschalten
-
-
 
   - id: measure_water_level
     then:
@@ -180,22 +167,23 @@ script:
     then: 
       - component.update: soil_moisture_raw
       - delay: 5s
-      # log moisture level
       - logger.log:
           level: INFO
-          format: Soil Moisture value updated
-      # not turning the sensor off yet because im not sure if the value will be kept for calcs
+          format: "Soil Moisture value updated: %.1f mV"
+          args: ["id(soil_moisture_raw).state"]
       - switch.turn_off: vcc_soil_moisture
 
   - id: measure_temp_hum
     then:
       - component.update: temp_hum 
       - delay: 5s
-      # log temp
-      # not turning the sensor off yet because im not sure if the value will be kept for calcs
       - logger.log:
           level: INFO
-          format: Temp./Hum. value updated
+          format: "Temp./Hum. value updated: %.1f °C / %.1f %%" 
+          args:
+            - id(temperature).state
+            - id(humidity).state
+      - switch.turn_off: temp_hum
   # - id: calculate_moisture_value
   # lo calc
       # tbd
@@ -207,7 +195,7 @@ script:
           level: INFO
           format: STARTING pump cycle
       - switch.turn_on: relay1
-      - delay: !lambda return id(pump_duration).state;
+      - delay: !lambda return id(pump_duration).state * 1000;
       - switch.turn_off: relay1
       - logger.log: 
           level: INFO
@@ -256,6 +244,7 @@ sensor:
     pin: GPIO3
     platform: adc
     raw: true
+    unit_of_measurement: "mV"
     attenuation: 12db
     update_interval: never
 
@@ -264,6 +253,7 @@ sensor:
     pin: GPIO4
     platform: adc
     raw: true
+    unit_of_measurement: "mV"
     attenuation: 12db
     update_interval: never
 
@@ -273,8 +263,10 @@ sensor:
     model: dht11
     temperature:
       name: "Temperature"
+      id: temperature
     humidity:
       name: "Humidity"
+      id: humidity
     update_interval: 25s
 
 
@@ -333,7 +325,7 @@ number:
     optimistic: true
     min_value: 0
     max_value: 3650
-    unit_of_measurement: "Volt"
+    unit_of_measurement: "mV"
     step: 1
     restore_value: true
 
@@ -343,7 +335,7 @@ number:
     optimistic: true
     min_value: 0
     max_value: 2000
-    unit_of_measurement: "Volt"
+    unit_of_measurement: "mV"
     step: 1
     restore_value: true
 
@@ -353,7 +345,7 @@ number:
     optimistic: true
     min_value: 0
     max_value: 2000
-    unit_of_measurement: "Volt"
+    unit_of_measurement: "mV"
     step: 1
     restore_value: true
 
@@ -363,7 +355,7 @@ number:
     optimistic: true
     min_value: 0
     max_value: 2000
-    unit_of_measurement: "Volt"
+    unit_of_measurement: "mV"
     step: 1
     restore_value: true
 
