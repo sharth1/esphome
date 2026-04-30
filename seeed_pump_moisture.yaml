@@ -210,7 +210,7 @@ output:
   platform: slow_pwm
   pin: GPIO9
   id: my_slow_pwm
-  period: 1000ms
+  period: 500ms
 ############################# SCREEN #############################
 
 # i2c:
