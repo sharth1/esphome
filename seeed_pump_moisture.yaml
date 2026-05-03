@@ -9,7 +9,7 @@ esphome:
         - delay: 5s
         - output.set_level: 
             id: my_slow_pwm
-            level: "10%"
+            level: "50%"
         - script.execute: check_connections
         - script.wait: check_connections
     # - priority: 600
@@ -30,7 +30,7 @@ esphome:
         - if:
             condition:
               - lambda: |-
-                 return id(soil_moisture_raw).state > 1700; 
+                 return id(soil_moisture_raw).state > id(wet_soil_value).state;
             then:
               - script.execute: pump_cycle
               - script.wait: pump_cycle
@@ -75,7 +75,7 @@ mqtt:
 
 deep_sleep:
   id: deep_sleep_1
-  sleep_duration: 600s
+  sleep_duration: 3600s
 
 ############################# SCRIPTS #############################
 script:
